@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>헬미쉪 - AI 레시피 추출기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Nanum Gothic', sans-serif; }
+        .rounded-custom { border-radius: 2rem; }
+    </style>
+</head>
+<body class="bg-[#FFF9F5] min-h-screen flex flex-col">
+
+    <header class="bg-white px-6 py-4 flex justify-between items-center shadow-sm border-b border-orange-100">
+        <div class="flex items-center gap-2">
+            <img src="logo1.png" alt="헬미쉪 로고" class="h-20 w-auto">
+        </div>
+        <button class="px-6 py-2 border-2 border-orange-500 text-orange-500 font-bold rounded-full hover:bg-orange-500 hover:text-white transition duration-300">
+            로그인
+        </button>
+    </header>
+
+    <main class="flex-grow flex flex-col items-center px-4 py-12 w-full max-w-4xl mx-auto">
+
+        <div class="w-full relative mb-12">
+            <div class="flex items-center bg-white shadow-lg rounded-full border-2 border-orange-200 focus-within:border-orange-500 transition-all p-1">
+                <input type="text" id="youtube-url"
+                       placeholder="유튜브 주소를 입력하세요"
+                       class="flex-grow px-6 py-4 bg-transparent outline-none text-gray-700 text-lg">
+                <button onclick="extractRecipe()"
+                        class="bg-orange-500 hover:bg-orange-600 text-white px-10 py-4 rounded-full font-bold text-lg transition duration-300 shadow-md">
+                    검색
+                </button>
+            </div>
+        </div>
+
+        <div class="w-full max-w-lg">
+            <div id="thumbnail-preview"
+                 class="aspect-video bg-orange-100 rounded-[2.5rem] border-4 border-dashed border-orange-300 flex flex-col items-center justify-center text-orange-400 group hover:border-orange-500 hover:bg-orange-50 transition-all cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 mb-2 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                <p class="font-bold">검색된 영상이 여기에 표시됩니다</p>
+            </div>
+        </div>
+
+        <div id="status-box" class="mt-8 hidden p-4 w-full max-w-md rounded-2xl text-center font-bold shadow-sm">
+            <span id="status-text"></span>
+        </div>
+    </main>
+
+    <footer class="bg-orange-700 text-white py-6 mt-auto">
+        <div class="container mx-auto text-center px-4 text-sm sm:text-base opacity-90">
+            <p>문의: <span class="font-semibold underline">sinsa9122@naver.com</span></p>
+            <p class="mt-1 text-orange-200 text-xs">© 2026 헬미쉪. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        async function extractRecipe() {
+            const url = document.getElementById('youtube-url').value;
+            const statusBox = document.getElementById('status-box');
+            const statusText = document.getElementById('status-text');
+            const preview = document.getElementById('thumbnail-preview');
+
+            if (!url) {
+                alert("유튜브 URL을 입력해 주세요!");
+                return;
+            }
+
+            // UI 상태 변경
+            statusBox.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
+            statusBox.classList.add('bg-orange-100', 'text-orange-700', 'block');
+            statusText.innerText = "🔍 레시피를 분석하여 노션에 저장하고 있습니다...";
+
+            try {
+                const response = await fetch('/extract', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ 'url': url })
+                });
+
+                const data = await response.json();
+
+                statusBox.classList.replace('bg-orange-100', 'bg-green-100');
+                statusBox.classList.replace('text-orange-700', 'text-green-700');
+                statusText.innerText = "✅ 성공! 노션 페이지를 확인해 보세요.";
+
+                // (옵션) 유튜브 썸네일을 가져와 미리보기 영역에 표시하는 기능 추가 가능
+                const videoId = url.split('v=')[1]?.split('&')[0];
+                if (videoId) {
+                    preview.innerHTML = `<img src="https://img.youtube.com/vi/${videoId}/maxresdefault.jpg" class="w-full h-full object-cover rounded-[2.3rem]">`;
+                    preview.classList.remove('border-dashed');
+                }
+
+            } catch (error) {
+                statusBox.classList.replace('bg-orange-100', 'bg-red-100');
+                statusBox.classList.replace('text-orange-700', 'text-red-700');
+                statusText.innerText = "❌ 오류가 발생했습니다. URL을 다시 확인해 주세요.";
+            }
+        }
+    </script>
+</body>
+</html>
