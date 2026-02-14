@@ -1,106 +1,435 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>헬미쉪 - AI 레시피 추출기</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>헬미쉪 - 나만의 AI 요리 비서</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        body { font-family: 'Nanum Gothic', sans-serif; }
-        .rounded-custom { border-radius: 2rem; }
-    </style>
-</head>
-<body class="bg-[#FFF9F5] min-h-screen flex flex-col">
+        body {
+            font-family: 'Pretendard', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-    <header class="bg-white px-6 py-4 flex justify-between items-center shadow-sm border-b border-orange-100">
-        <div class="flex items-center gap-2">
-            <img src="logo1.png" alt="헬미쉪 로고" class="h-20 w-auto">
-        </div>
-        <button class="px-6 py-2 border-2 border-orange-500 text-orange-500 font-bold rounded-full hover:bg-orange-500 hover:text-white transition duration-300">
-            로그인
-        </button>
-    </header>
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
 
-    <main class="flex-grow flex flex-col items-center px-4 py-12 w-full max-w-4xl mx-auto">
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
 
-        <div class="w-full relative mb-12">
-            <div class="flex items-center bg-white shadow-lg rounded-full border-2 border-orange-200 focus-within:border-orange-500 transition-all p-1">
-                <input type="text" id="youtube-url"
-                       placeholder="유튜브 주소를 입력하세요"
-                       class="flex-grow px-6 py-4 bg-transparent outline-none text-gray-700 text-lg">
-                <button onclick="extractRecipe()"
-                        class="bg-orange-500 hover:bg-orange-600 text-white px-10 py-4 rounded-full font-bold text-lg transition duration-300 shadow-md">
-                    검색
-                </button>
-            </div>
-        </div>
+        @keyframes bounce-slow {
 
-        <div class="w-full max-w-lg">
-            <div id="thumbnail-preview"
-                 class="aspect-video bg-orange-100 rounded-[2.5rem] border-4 border-dashed border-orange-300 flex flex-col items-center justify-center text-orange-400 group hover:border-orange-500 hover:bg-orange-50 transition-all cursor-pointer">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 mb-2 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                <p class="font-bold">검색된 영상이 여기에 표시됩니다</p>
-            </div>
-        </div>
-
-        <div id="status-box" class="mt-8 hidden p-4 w-full max-w-md rounded-2xl text-center font-bold shadow-sm">
-            <span id="status-text"></span>
-        </div>
-    </main>
-
-    <footer class="bg-orange-700 text-white py-6 mt-auto">
-        <div class="container mx-auto text-center px-4 text-sm sm:text-base opacity-90">
-            <p>문의: <span class="font-semibold underline">sinsa9122@naver.com</span></p>
-            <p class="mt-1 text-orange-200 text-xs">© 2026 헬미쉪. All rights reserved.</p>
-        </div>
-    </footer>
-
-    <script>
-        async function extractRecipe() {
-            const url = document.getElementById('youtube-url').value;
-            const statusBox = document.getElementById('status-box');
-            const statusText = document.getElementById('status-text');
-            const preview = document.getElementById('thumbnail-preview');
-
-            if (!url) {
-                alert("유튜브 URL을 입력해 주세요!");
-                return;
+            0%,
+            100% {
+                transform: translateY(-5%);
             }
 
-            // UI 상태 변경
-            statusBox.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
-            statusBox.classList.add('bg-orange-100', 'text-orange-700', 'block');
-            statusText.innerText = "🔍 레시피를 분석하여 노션에 저장하고 있습니다...";
+            50% {
+                transform: translateY(5%);
+            }
+        }
+
+        .animate-bounce-slow {
+            animation: bounce-slow 2s infinite;
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-orange-50 to-orange-100 min-h-screen text-gray-800">
+
+    <!-- Mobile App Container -->
+    <div class="max-w-md mx-auto min-h-screen bg-white shadow-2xl overflow-hidden relative flex flex-col">
+
+        <!-- Header -->
+        <header
+            class="p-5 flex justify-between items-center bg-white/80 sticky top-0 z-50 backdrop-blur-md border-b border-orange-100">
+            <div class="flex items-center gap-2">
+                <div class="bg-orange-500 rounded-lg p-1.5">
+                    <i data-lucide="chef-hat" class="text-white w-6 h-6"></i>
+                </div>
+                <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-600 to-red-500">
+                    헬미쉪</h1>
+            </div>
+            <button class="p-2 hover:bg-orange-50 rounded-full transition-colors">
+                <i data-lucide="bell" class="text-gray-600 w-6 h-6"></i>
+            </button>
+        </header>
+
+        <!-- Main Content Areas -->
+        <main class="flex-grow overflow-y-auto hide-scrollbar pb-24 relative">
+
+            <!-- VIEW: HOME -->
+            <div id="view-home" class="p-5 transition-opacity duration-300">
+                <!-- Hero Section -->
+                <div class="mb-8 text-center" id="hero-section">
+                    <div class="inline-block p-4 mb-4 bg-orange-100 rounded-full animate-bounce-slow">
+                        <span class="text-4xl">🍳</span>
+                    </div>
+                    <h2 class="text-2xl font-bold mb-2 text-gray-800">어떤 요리를 도와드릴까요?</h2>
+                    <p class="text-gray-500 text-sm">유튜브 링크만 넣으면 레시피가 뚝딱!</p>
+                </div>
+
+                <!-- Input Area -->
+                <div class="relative mb-8 group">
+                    <div
+                        class="absolute inset-0 bg-gradient-to-r from-orange-400 to-pink-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300">
+                    </div>
+                    <div class="relative bg-white rounded-2xl p-2 shadow-lg flex items-center border border-orange-100">
+                        <div class="pl-3 text-orange-400">
+                            <i data-lucide="youtube" class="w-5 h-5"></i>
+                        </div>
+                        <input type="text" id="youtube-url"
+                            class="w-full p-3 bg-transparent outline-none text-gray-700 placeholder-gray-400"
+                            placeholder="유튜브 URL 붙여넣기...">
+                        <button onclick="extractRecipe()"
+                            class="bg-gradient-to-r from-orange-500 to-red-500 text-white p-3 rounded-xl shadow-md transform active:scale-95 transition-all hover:shadow-lg">
+                            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loading" class="hidden flex-col items-center justify-center py-10 fade-in">
+                    <div
+                        class="w-16 h-16 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4">
+                    </div>
+                    <p class="text-orange-600 font-medium animate-pulse">AI 쉐프가 영상을 분석 중입니다...</p>
+                    <p class="text-gray-400 text-xs mt-2">잠시만 기다려주세요 (약 10~30초)</p>
+                </div>
+
+                <!-- Result Section -->
+                <div id="result" class="hidden text-left space-y-6 animate-fade-in-up">
+                    <!-- Recipe Header -->
+                    <div class="bg-white rounded-3xl p-5 shadow-lg border border-orange-50 relative">
+                        <div class="flex items-start justify-between mb-3">
+                            <span class="px-3 py-1 bg-orange-100 text-orange-600 text-xs font-bold rounded-full">AI 분석
+                                완료</span>
+                            <button onclick="toggleBookmark()" id="btn-bookmark"
+                                class="text-gray-300 hover:text-red-500 transition-colors">
+                                <i data-lucide="heart" class="w-6 h-6 fill-current"></i>
+                            </button>
+                        </div>
+                        <img id="recipe-thumb" src="" class="w-full h-48 object-cover rounded-xl mb-4 hidden">
+                        <h2 id="recipe-title" class="text-2xl font-bold text-gray-800 mb-2 leading-tight"></h2>
+                        <p id="recipe-desc" class="text-gray-500 text-sm mb-4"></p>
+                    </div>
+
+                    <!-- Ingredients -->
+                    <div class="bg-white rounded-3xl p-0 overflow-hidden shadow-lg border border-orange-50">
+                        <div class="bg-orange-50/50 p-4 border-b border-orange-100">
+                            <h3 class="font-bold flex items-center gap-2 text-gray-800">
+                                <i data-lucide="shopping-bag" class="w-4 h-4 text-orange-500"></i> 재료 준비
+                            </h3>
+                        </div>
+                        <ul id="recipe-ingredients" class="p-5 space-y-3 text-sm text-gray-600"></ul>
+                    </div>
+
+                    <!-- Steps -->
+                    <div class="bg-white rounded-3xl p-0 overflow-hidden shadow-lg border border-orange-50">
+                        <div class="bg-orange-50/50 p-4 border-b border-orange-100">
+                            <h3 class="font-bold flex items-center gap-2 text-gray-800">
+                                <i data-lucide="list-checks" class="w-4 h-4 text-orange-500"></i> 조리 순서
+                            </h3>
+                        </div>
+                        <div id="recipe-steps" class="p-5 space-y-6"></div>
+                    </div>
+
+                    <!-- Tips -->
+                    <div id="tips-container" class="bg-yellow-50 rounded-2xl p-5 border border-yellow-200 hidden">
+                        <h3 class="font-bold text-yellow-800 mb-2 flex items-center gap-2">
+                            <i data-lucide="lightbulb" class="w-4 h-4"></i> 쉐프의 팁
+                        </h3>
+                        <ul id="recipe-tips" class="text-sm text-yellow-700 list-disc list-inside space-y-1"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: BOOKMARKS -->
+            <div id="view-bookmarks" class="hidden p-5">
+                <h2 class="text-2xl font-bold mb-6">내가 찜한 레시피 📚</h2>
+                <div id="bookmarks-list" class="grid grid-cols-1 gap-4">
+                    <!-- Bookmarks injected here -->
+                    <div class="text-center py-10 text-gray-400">저장된 레시피가 없습니다.</div>
+                </div>
+            </div>
+
+            <!-- VIEW: MY PAGE -->
+            <div id="view-mypage" class="hidden p-5">
+                <h2 class="text-2xl font-bold mb-6">마이페이지 👤</h2>
+
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6 text-center">
+                    <div
+                        class="w-20 h-20 bg-orange-100 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">
+                        👨‍🍳</div>
+                    <h3 class="text-lg font-bold">나만의 쉐프</h3>
+                    <p class="text-gray-500 text-sm">요리 초보 탈출 중!</p>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="bg-white rounded-xl p-4 shadow-sm flex items-center justify-between">
+                        <span class="flex items-center gap-3"><i data-lucide="settings"
+                                class="w-5 h-5 text-gray-400"></i> 설정</span>
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm flex items-center justify-between">
+                        <span class="flex items-center gap-3"><i data-lucide="help-circle"
+                                class="w-5 h-5 text-gray-400"></i> 도움말</span>
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300"></i>
+                    </div>
+                </div>
+
+                <div class="mt-8 p-4 bg-orange-50 rounded-xl">
+                    <h4 class="font-bold text-orange-800 mb-2">Gemini API Key 상태</h4>
+                    <p class="text-sm text-orange-600">
+                        현재 .env 설정이 <span class="font-bold md:">활성화</span> 되어 있습니다. (예시)
+                    </p>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Bottom Nav -->
+        <nav
+            class="bg-white border-t border-gray-100 p-3 flex justify-around items-center absolute bottom-0 w-full pb-6 z-40">
+            <button onclick="switchView('home')" id="nav-home"
+                class="flex flex-col items-center gap-1 text-orange-500 transition-colors">
+                <i data-lucide="home" class="w-6 h-6"></i>
+                <span class="text-[10px] font-medium">홈</span>
+            </button>
+            <button onclick="switchView('bookmarks')" id="nav-bookmarks"
+                class="flex flex-col items-center gap-1 text-gray-300 hover:text-gray-500 transition-colors">
+                <i data-lucide="book-open" class="w-6 h-6"></i>
+                <span class="text-[10px] font-medium">북마크</span>
+            </button>
+            <button onclick="switchView('mypage')" id="nav-mypage"
+                class="flex flex-col items-center gap-1 text-gray-300 hover:text-gray-500 transition-colors">
+                <i data-lucide="user" class="w-6 h-6"></i>
+                <span class="text-[10px] font-medium">마이</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <script>
+        lucide.createIcons();
+        let currentRecipe = null; // Store current recipe for bookmarking
+
+        // Navigation Logic
+        function switchView(viewName) {
+            // Hide all views
+            ['home', 'bookmarks', 'mypage'].forEach(v => {
+                document.getElementById('view-' + v).classList.add('hidden');
+                const btn = document.getElementById('nav-' + v);
+                btn.classList.remove('text-orange-500');
+                btn.classList.add('text-gray-300');
+            });
+
+            // Show selected view
+            document.getElementById('view-' + viewName).classList.remove('hidden');
+            const activeBtn = document.getElementById('nav-' + viewName);
+            activeBtn.classList.add('text-orange-500');
+            activeBtn.classList.remove('text-gray-300');
+
+            if (viewName === 'bookmarks') loadBookmarks();
+        }
+
+        // Bookmark Logic
+        async function loadBookmarks() {
+            const list = document.getElementById('bookmarks-list');
+            list.innerHTML = '<div class="text-center py-10"><div class="animate-spin w-6 h-6 border-2 border-orange-500 rounded-full mx-auto"></div></div>';
 
             try {
-                const response = await fetch('/extract', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ 'url': url })
-                });
+                const res = await fetch('/api/bookmarks');
+                const bookmarks = await res.json();
 
-                const data = await response.json();
-
-                statusBox.classList.replace('bg-orange-100', 'bg-green-100');
-                statusBox.classList.replace('text-orange-700', 'text-green-700');
-                statusText.innerText = "✅ 성공! 노션 페이지를 확인해 보세요.";
-
-                // (옵션) 유튜브 썸네일을 가져와 미리보기 영역에 표시하는 기능 추가 가능
-                const videoId = url.split('v=')[1]?.split('&')[0];
-                if (videoId) {
-                    preview.innerHTML = `<img src="https://img.youtube.com/vi/${videoId}/maxresdefault.jpg" class="w-full h-full object-cover rounded-[2.3rem]">`;
-                    preview.classList.remove('border-dashed');
+                if (bookmarks.length === 0) {
+                    list.innerHTML = '<div class="text-center py-10 text-gray-400">저장된 레시피가 없습니다.</div>';
+                    return;
                 }
 
+                list.innerHTML = '';
+                bookmarks.forEach(b => {
+                    list.innerHTML += `
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex gap-3 p-3 relative cursor-pointer hover:bg-orange-50 transition-colors" onclick="loadRecipeFromBookmark('${b.id}')">
+                            <img src="${b.thumbnail || 'https://via.placeholder.com/100'}" class="w-20 h-20 object-cover rounded-lg flex-shrink-0 bg-gray-200">
+                            <div class="flex-grow">
+                                <h4 class="font-bold text-gray-800 line-clamp-1">${b.title}</h4>
+                                <p class="text-xs text-gray-500 line-clamp-2 mt-1">${b.description}</p>
+                                <button onclick="event.stopPropagation(); deleteBookmark('${b.id}')" class="absolute bottom-3 right-3 text-gray-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                    `;
+                });
+                lucide.createIcons();
+            } catch (e) {
+                list.innerHTML = '<div class="text-center text-red-500">불러오기 실패</div>';
+            }
+        }
+
+        async function toggleBookmark() {
+            if (!currentRecipe) return;
+            const btn = document.getElementById('btn-bookmark');
+
+            try {
+                const res = await fetch('/api/bookmarks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentRecipe)
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    btn.classList.add('text-red-500');
+                    btn.classList.remove('text-gray-300');
+                    alert('북마크에 저장되었습니다!');
+                } else {
+                    alert(data.message || '이미 저장되어 있거나 오류가 발생했습니다.');
+                }
+            } catch (e) {
+                alert('저장 중 오류가 발생했습니다.');
+            }
+        }
+
+        async function deleteBookmark(id) {
+            if (!confirm('정말 삭제하시겠습니까?')) return;
+            await fetch('/api/bookmarks/' + id, { method: 'DELETE' });
+            loadBookmarks(); // Refresh
+        }
+
+        async function loadRecipeFromBookmark(id) {
+            try {
+                const res = await fetch('/api/bookmarks');
+                const bookmarks = await res.json();
+                const recipe = bookmarks.find(b => b.id === id);
+
+                if (recipe) {
+                    currentRecipe = recipe;
+                    // Render Data (Similar to extractRecipe)
+                    document.getElementById('recipe-title').innerText = recipe.title;
+                    document.getElementById('recipe-desc').innerText = recipe.description;
+
+                    const thumb = document.getElementById('recipe-thumb');
+                    if (recipe.thumbnail) {
+                        thumb.src = recipe.thumbnail;
+                        thumb.classList.remove('hidden');
+                    }
+
+                    const ingList = document.getElementById('recipe-ingredients');
+                    ingList.innerHTML = '';
+                    (recipe.ingredients || []).forEach(ing => {
+                        ingList.innerHTML += `<li class="flex items-center gap-3"><div class="w-1.5 h-1.5 rounded-full bg-orange-300"></div><span class="text-gray-700">${ing}</span></li>`;
+                    });
+
+                    const stepList = document.getElementById('recipe-steps');
+                    stepList.innerHTML = '';
+                    (recipe.steps || []).forEach((step, index) => {
+                        stepList.innerHTML += `<div class="flex gap-4"><div class="flex-shrink-0 w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold text-sm">${index + 1}</div><p class="text-gray-600 text-sm leading-relaxed pt-1.5">${step}</p></div>`;
+                    });
+
+                    const tipsContainer = document.getElementById('tips-container');
+                    if (recipe.tips && recipe.tips.length > 0) {
+                        const tipsList = document.getElementById('recipe-tips');
+                        tipsList.innerHTML = '';
+                        recipe.tips.forEach(tip => tipsList.innerHTML += `<li>${tip}</li>`);
+                        tipsContainer.classList.remove('hidden');
+                    } else {
+                        tipsContainer.classList.add('hidden');
+                    }
+
+                    // Show result in Home
+                    document.getElementById('result').classList.remove('hidden');
+                    document.getElementById('hero-section').classList.add('hidden');
+
+                    // Set Bookmark state
+                    const btn = document.getElementById('btn-bookmark');
+                    btn.classList.add('text-red-500');
+                    btn.classList.remove('text-gray-300');
+
+                    switchView('home');
+                    lucide.createIcons();
+                }
+            } catch (e) {
+                console.error(e);
+                alert('레시피를 불러오지 못했습니다.');
+            }
+        }
+
+        // Extraction Logic
+        async function extractRecipe() {
+            const url = document.getElementById('youtube-url').value;
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            const hero = document.getElementById('hero-section');
+            const btnBookmark = document.getElementById('btn-bookmark');
+
+            if (!url) { alert("유튜브 URL을 입력해주세요!"); return; }
+
+            hero.classList.add('hidden');
+            result.classList.add('hidden');
+            loading.classList.remove('hidden');
+            btnBookmark.classList.remove('text-red-500'); // Reset bookmark state
+            btnBookmark.classList.add('text-gray-300');
+
+            try {
+                const formData = new FormData();
+                formData.append('url', url);
+
+                const response = await fetch('/extract', { method: 'POST', body: formData });
+                if (!response.ok) throw new Error('레시피를 가져오는데 실패했습니다.');
+
+                const data = await response.json();
+                currentRecipe = data; // Save for bookmarking
+
+                // Render Data
+                document.getElementById('recipe-title').innerText = data.title;
+                document.getElementById('recipe-desc').innerText = data.description;
+
+                const thumb = document.getElementById('recipe-thumb');
+                if (data.thumbnail) {
+                    thumb.src = data.thumbnail;
+                    thumb.classList.remove('hidden');
+                }
+
+                const ingList = document.getElementById('recipe-ingredients');
+                ingList.innerHTML = '';
+                (data.ingredients || []).forEach(ing => {
+                    ingList.innerHTML += `<li class="flex items-center gap-3"><div class="w-1.5 h-1.5 rounded-full bg-orange-300"></div><span class="text-gray-700">${ing}</span></li>`;
+                });
+
+                const stepList = document.getElementById('recipe-steps');
+                stepList.innerHTML = '';
+                (data.steps || []).forEach((step, index) => {
+                    stepList.innerHTML += `<div class="flex gap-4"><div class="flex-shrink-0 w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold text-sm">${index + 1}</div><p class="text-gray-600 text-sm leading-relaxed pt-1.5">${step}</p></div>`;
+                });
+
+                const tipsContainer = document.getElementById('tips-container');
+                if (data.tips && data.tips.length > 0) {
+                    const tipsList = document.getElementById('recipe-tips');
+                    tipsList.innerHTML = '';
+                    data.tips.forEach(tip => tipsList.innerHTML += `<li>${tip}</li>`);
+                    tipsContainer.classList.remove('hidden');
+                } else {
+                    tipsContainer.classList.add('hidden');
+                }
+
+                loading.classList.add('hidden');
+                result.classList.remove('hidden');
+                lucide.createIcons();
+
             } catch (error) {
-                statusBox.classList.replace('bg-orange-100', 'bg-red-100');
-                statusBox.classList.replace('text-orange-700', 'text-red-700');
-                statusText.innerText = "❌ 오류가 발생했습니다. URL을 다시 확인해 주세요.";
+                console.error(error);
+                loading.classList.add('hidden');
+                hero.classList.remove('hidden');
+                alert('오류가 발생했습니다.');
             }
         }
     </script>
 </body>
+
 </html>

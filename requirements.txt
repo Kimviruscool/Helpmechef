@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+jinja2
+python-multipart
+youtube-transcript-api
+google-generativeai
+python-dotenv
+requests
