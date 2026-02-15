@@ -1,0 +1,124 @@
+{
+  "responseContext": {
+    "serviceTrackingParams": [
+      {
+        "service": "GFEEDBACK",
+        "params": [
+          {
+            "key": "is_viewed_live",
+            "value": "False"
+          },
+          {
+            "key": "logged_in",
+            "value": "0"
+          },
+          {
+            "key": "visitor_data",
+            "value": "CgtFVkZuejFNb2s3YyjymsfMBjIKCgJLUhIEGgAgZGLfAgrcAjE2LllUPU5NZVk0QmNpeml5X3NBZk9mNW04UWJNYjhCVnloRC1jSlNSSVl4U3hXQTNnT08wQ29RVWZERW1YV3BhdkRZT253cWlYODVTQmZzVlN4ZTNVaGlNcERiSnYxTjJZeWVTVFk4NS1BMWwyTjVXS21MWjJEZExUYUJxRVJxaHBDczBfdXpxeUl0UDM5RnJxQ1Z0Q09SaWNzcmJyNURDSndJMTduREEtdzFxY2JrTEJseUFpVlVPTThNNEEtSVpBY19lb0pINXVwcXJ4QXI2TFVFUmZQZ1dLYUpDeWVOZWdhX2JmdXZYLU5OZ0FHeDQwSVZPZWJPUENxNWZISlVyVFdSVXBIdUFWeTJXd24tUXdrNEIyMmxHbkQ0UWpjRHU2aUZiLXlPUUtKOGVuRVFWX3YyYUllTmc5V2d4NGU5WVFQRUZsWTZNVE9tTDhZcGEwbjB1Um5ZMlJ5Zw%3D%3D"
+          }
+        ]
+      },
+      {
+        "service": "CSI",
+        "params": [
+          {
+            "key": "c",
+            "value": "WEB"
+          },
+          {
+            "key": "cver",
+            "value": "2.20260213.01.00"
+          },
+          {
+            "key": "yt_li",
+            "value": "0"
+          },
+          {
+            "key": "GetPlayer_rid",
+            "value": "0xc96fbdb670761529"
+          }
+        ]
+      },
+      {
+        "service": "GUIDED_HELP",
+        "params": [
+          {
+            "key": "logged_in",
+            "value": "0"
+          }
+        ]
+      },
+      {
+        "service": "ECATCHER",
+        "params": [
+          {
+            "key": "client.version",
+            "value": "2.20260213"
+          },
+          {
+            "key": "client.name",
+            "value": "WEB"
+          }
+        ]
+      }
+    ],
+    "maxAgeSeconds": 0,
+    "mainAppWebResponseContext": {
+      "loggedOut": true,
+      "trackingParam": "kx_fmPxhoPZRTVd-oOXFsmC48-nGwFqUQQeC8lUp4R28sqzRgkuMsNLBwOcCE59TDtslLKPQ-SS"
+    },
+    "webResponseContextExtensionData": {
+      "webResponseContextPreloadData": {
+        "preloadMessageNames": [
+          "playerErrorMessageRenderer"
+        ]
+      },
+      "hasDecorated": true
+    }
+  },
+  "playabilityStatus": {
+    "status": "ERROR",
+    "reason": "동영상을 재생할 수 없음",
+    "errorScreen": {
+      "playerErrorMessageRenderer": {
+        "reason": {
+          "simpleText": "동영상을 재생할 수 없음"
+        },
+        "thumbnail": {
+          "thumbnails": [
+            {
+              "url": "//s.ytimg.com/yts/img/meh7-vflGevej7.png",
+              "width": 140,
+              "height": 100
+            }
+          ]
+        },
+        "icon": {
+          "iconType": "ERROR_OUTLINE"
+        }
+      }
+    },
+    "contextParams": "Q0FBU0FnZ0E="
+  },
+  "trackingParams": "CAAQu2kiEwjQmoCp0NuSAxUYRfUFHXOUNMY=",
+  "frameworkUpdates": {
+    "entityBatchUpdate": {
+      "mutations": [
+        {
+          "entityKey": "Eg0KC25lY3hPMFFrOXkwIPYBKAE%3D",
+          "type": "ENTITY_MUTATION_TYPE_REPLACE",
+          "payload": {
+            "offlineabilityEntity": {
+              "key": "Eg0KC25lY3hPMFFrOXkwIPYBKAE%3D",
+              "addToOfflineButtonState": "ADD_TO_OFFLINE_BUTTON_STATE_UNKNOWN"
+            }
+          }
+        }
+      ],
+      "timestamp": {
+        "seconds": "1771162994",
+        "nanos": 498975464
+      }
+    }
+  }
+}

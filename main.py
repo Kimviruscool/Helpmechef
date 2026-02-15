@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, Form, HTTPException, Body
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
-from youtube_transcript_api import YouTubeTranscriptApi
+# from youtube_transcript_api import YouTubeTranscriptApi 
 import google.generativeai as genai
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -11,7 +11,10 @@ import requests
 import os
 import json
 import re
+import html
+import xml.etree.ElementTree as ET
 from typing import List, Dict, Optional
+from yt_dlp import YoutubeDL
 
 # Load environment variables
 load_dotenv()
@@ -88,14 +91,89 @@ def get_video_title(video_id: str) -> str:
     return "YouTube Video"
 
 def get_transcript(video_id: str) -> str:
-    """Fetches transcript from YouTube."""
+    """Fetches transcript using yt-dlp."""
     try:
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['ko', 'en'])
-        transcript_text = " ".join([t['text'] for t in transcript_list])
-        return transcript_text
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        ydl_opts = {
+            'writesubtitles': True,
+            'writeautomaticsub': True,
+            'skip_download': True,
+            'subtitleslangs': ['ko', 'en'],
+            'quiet': True,
+            'no_warnings': True,
+        }
+        
+        with YoutubeDL(ydl_opts) as ydl:
+            try:
+                info = ydl.extract_info(url, download=False)
+            except Exception as e:
+                return f"ERROR: yt-dlp failed to extract info: {str(e)}"
+                
+        subtitles = info.get('subtitles', {})
+        automatic_captions = info.get('automatic_captions', {})
+        
+        # Priority: Korean (Manual) -> English (Manual) -> Korean (Auto) -> English (Auto)
+        selected_sub = None
+        for lang in ['ko', 'en']:
+            if lang in subtitles:
+                selected_sub = subtitles[lang]
+                break
+        
+        if not selected_sub:
+             for lang in ['ko', 'en']:
+                if lang in automatic_captions:
+                    selected_sub = automatic_captions[lang]
+                    break
+                    
+        # Fallback to any available
+        if not selected_sub:
+            if subtitles:
+                selected_sub = next(iter(subtitles.values()))
+            elif automatic_captions:
+                selected_sub = next(iter(automatic_captions.values()))
+                
+        if not selected_sub:
+            return "ERROR: No subtitles found for this video."
+
+        # Fetch the subtitle content
+        # selected_sub is a list of formats. usually we want 'json3' or 'srv1' or 'vtt'
+        # yt-dlp usually returns a list of dicts with 'url' and 'ext'
+        
+        sub_url = None
+        # Prefer 'srv1' (XML) or 'json3' or 'vtt'
+        for fmt in selected_sub:
+            if fmt.get('ext') in ['srv1', 'xml']:
+                sub_url = fmt['url']
+                break
+        
+        if not sub_url:
+             sub_url = selected_sub[-1]['url'] # Fallback to last one
+
+        response = requests.get(sub_url)
+        if response.status_code != 200:
+            return "ERROR: Failed to download subtitle content."
+            
+        content = response.text
+        
+        # Simple XML parsing if it looks like XML
+        if content.strip().startswith("<?xml") or "<text" in content:
+            try:
+                root = ET.fromstring(content)
+                lines = []
+                for child in root.findall(".//text"):
+                    if child.text:
+                        lines.append(html.unescape(child.text))
+                return " ".join(lines)
+            except:
+                pass # Fallback to raw text if parsing fails
+        
+        # If headers are JSON3 or just raw text, just return it (Gemini can handle it)
+        return content
+
     except Exception as e:
-        print(f"Error fetching transcript: {e}")
-        return ""
+        error_msg = f"ERROR: Extraction failed: {str(e)}"
+        print(f"DEBUG: {error_msg}")
+        return error_msg
 
 def mock_recipe(video_id: str) -> Dict:
     """Returns a mock recipe for demonstration purposes."""
@@ -159,7 +237,8 @@ async def delete_bookmark(bookmark_id: str):
     return {"message": "북마크 삭제 완료!"}
 
 @app.post("/extract")
-async def extract(url: str = Form(...)):
+def extract(url: str = Form(...)):
+    print(f"DEBUG: Extract request received for URL: {url}")
     video_id = get_video_id(url)
     if not video_id:
         return JSONResponse(content={"error": "유효하지 않은 YouTube URL입니다."}, status_code=400)
@@ -168,6 +247,11 @@ async def extract(url: str = Form(...)):
     transcript = get_transcript(video_id)
     real_title = get_video_title(video_id)
     
+    transcript_error = None
+    if transcript.startswith("ERROR:"):
+        transcript_error = transcript
+        transcript = ""
+
     # 2. Process with Gemini
     if GEMINI_API_KEY and transcript:
         try:
@@ -190,15 +274,34 @@ async def extract(url: str = Form(...)):
             {transcript[:15000]} 
             """
             
+            print(f"DEBUG: Sending prompt to Gemini (Length: {len(prompt)})")
             response = model.generate_content(prompt)
-            # Clean up response to ensure it's valid JSON
             text = response.text
+            print(f"DEBUG: Raw Gemini Response:\n{text}\n-------------------")
+
+            # Clean up response to ensure it's valid JSON
+            # Remove markdown code blocks if present
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0]
             elif "```" in text:
                 text = text.split("```")[1].split("```")[0]
             
-            recipe_data = json.loads(text)
+            # Strip whitespace
+            text = text.strip()
+            
+            try:
+                recipe_data = json.loads(text)
+            except json.JSONDecodeError as e:
+                print(f"DEBUG: JSON Parse Error: {e}")
+                # Try to find JSON object with regex if simple split failed
+                match = re.search(r'\{.*\}', text, re.DOTALL)
+                if match:
+                    print("DEBUG: Attempting regex JSON extraction...")
+                    text = match.group(0)
+                    recipe_data = json.loads(text)
+                else:
+                    raise e
+
             recipe_data["title"] = real_title # Encforce real title
             recipe_data["video_id"] = video_id
             recipe_data["thumbnail"] = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
@@ -223,5 +326,5 @@ async def extract(url: str = Form(...)):
         if not GEMINI_API_KEY:
             result['description'] = "[데모 모드] Gemini API 키가 올바르지 않거나 설정되지 않았습니다. .env 파일을 확인해주세요."
         elif not transcript:
-             result['description'] = "[오류] 자막이 없는 영상이거나 Shorts 자막을 가져올 수 없습니다. 다른 영상을 시도해주세요."
+             result['description'] = f"[오류] 자막을 가져올 수 없습니다. 원인: {transcript_error or '알 수 없음'}"
         return result
