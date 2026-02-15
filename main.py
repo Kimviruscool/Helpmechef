@@ -8,6 +8,10 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 import uuid
 import requests
+import os
+import json
+import re
+from typing import List, Dict, Optional
 
 # Load environment variables
 load_dotenv()
@@ -50,9 +54,12 @@ if os.path.exists("static"):
 templates = Jinja2Templates(directory="templates")
 
 # Configure Gemini
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("gemini_api_key")
 if GEMINI_API_KEY:
+    print(f"DEBUG: Gemini API Key loaded (Length: {len(GEMINI_API_KEY)})")
     genai.configure(api_key=GEMINI_API_KEY)
+else:
+    print("DEBUG: Gemini API Key NOT found in environment variables.")
 
 def get_video_id(url: str) -> Optional[str]:
     """Extracts video ID from YouTube URL (including Shorts)."""
@@ -167,15 +174,16 @@ async def extract(url: str = Form(...)):
             model = genai.GenerativeModel('gemini-1.5-flash')
             prompt = f"""
             You are a professional chef. Analyze the following cooking video transcript and extract the recipe structure.
+            IMPORTANT: All content (description, ingredients, steps, tips) MUST be in Korean (한국어).
             The title of the recipe MUST be exactly: "{real_title}"
             
-            Return ONLY a JSON object with the following schema:
+            Return ONLY a valid JSON object with the following schema:
             {{
                 "title": "{real_title}",
-                "description": "Short description based on the transcript",
-                "ingredients": ["ingredient 1", "ingredient 2", ...],
-                "steps": ["step 1", "step 2", ...],
-                "tips": ["tip 1", "tip 2", ...]
+                "description": "Summarize the dish and its characteristics in Korean.",
+                "ingredients": ["List of ingredients with quantities in Korean"],
+                "steps": ["Step-by-step cooking instructions in Korean"],
+                "tips": ["Chef's tips or important notes in Korean"]
             }}
             
             Transcript:
@@ -197,20 +205,23 @@ async def extract(url: str = Form(...)):
             return recipe_data
             
         except Exception as e:
+            print(f"DEBUG: Gemini API Error: {e}")
             # Fallback to mock if API fails
             mock = mock_recipe(video_id)
             mock["title"] = real_title + " (API 오류로 인한 예시)"
+            mock["description"] = f"오류 발생: {str(e)}"
             mock["video_id"] = video_id
             mock["thumbnail"] = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
             return mock
     else:
+        print(f"DEBUG: Fallback triggered. API_KEY={bool(GEMINI_API_KEY)}, Transcript={bool(transcript)}")
         # No API Key or No Transcript -> Return Mock with a note
         result = mock_recipe(video_id)
         result["title"] = real_title if real_title != "YouTube Video" else result["title"]
         result["video_id"] = video_id
         result["thumbnail"] = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
         if not GEMINI_API_KEY:
-            result['description'] = "[데모 모드] Gemini API 키가 올바르지 않거나 설정되지 않았습니다."
+            result['description'] = "[데모 모드] Gemini API 키가 올바르지 않거나 설정되지 않았습니다. .env 파일을 확인해주세요."
         elif not transcript:
-             result['description'] = "[오류] 자막이 없는 영상이거나 Shorts 자막을 가져올 수 없습니다."
+             result['description'] = "[오류] 자막이 없는 영상이거나 Shorts 자막을 가져올 수 없습니다. 다른 영상을 시도해주세요."
         return result
