@@ -108,11 +108,13 @@ def get_transcript(video_id: str) -> str:
     try:
         print("DEBUG: Attempting fallback with yt-dlp...")
         url = f"https://www.youtube.com/watch?v={video_id}"
+        ydl_opts = {
             'writesubtitles': True,
             'writeautomaticsub': True,
             'skip_download': True,
             'quiet': True,
             'no_warnings': True,
+        }
         
         with YoutubeDL(ydl_opts) as ydl:
             try:
@@ -265,7 +267,7 @@ def extract(url: str = Form(...)):
              return JSONResponse(content={"error": f"이 영상에서 자막을 추출할 수 없습니다. (원인: {transcript_error or '알 수 없음'})"}, status_code=500)
 
         try:
-            model = genai.GenerativeModel('gemini-flash-latest')
+            model = genai.GenerativeModel('gemini-1.5-flash-latest')
             prompt = f"""
             You are a professional chef assistant. Analyze the following cooking video transcript and convert it into a structured recipe.
             
