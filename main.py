@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, Form, HTTPException, Body
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
-# from youtube_transcript_api import YouTubeTranscriptApi 
+from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 import google.generativeai as genai
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -59,6 +59,7 @@ templates = Jinja2Templates(directory="templates")
 # Configure Gemini
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("gemini_api_key")
 if GEMINI_API_KEY:
+    GEMINI_API_KEY = GEMINI_API_KEY.strip() # Remove any leading/trailing whitespace
     print(f"DEBUG: Gemini API Key loaded (Length: {len(GEMINI_API_KEY)})")
     genai.configure(api_key=GEMINI_API_KEY)
 else:
@@ -91,17 +92,27 @@ def get_video_title(video_id: str) -> str:
     return "YouTube Video"
 
 def get_transcript(video_id: str) -> str:
-    """Fetches transcript using yt-dlp."""
+    """Fetches transcript using YouTubeTranscriptApi first, then yt-dlp as fallback."""
+    print(f"DEBUG: Fetching transcript for {video_id}...")
+    
+    # 1. Try YouTubeTranscriptApi (Best for captions)
     try:
+        transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['ko', 'en'])
+        full_text = " ".join([entry['text'] for entry in transcript_list])
+        print("DEBUG: Successfully fetched via YouTubeTranscriptApi")
+        return full_text
+    except Exception as e:
+        print(f"DEBUG: YouTubeTranscriptApi failed: {str(e)}")
+        
+    # 2. Fallback: yt-dlp (Good for auto-generated heavily heavily obfuscated ones sometimes)
+    try:
+        print("DEBUG: Attempting fallback with yt-dlp...")
         url = f"https://www.youtube.com/watch?v={video_id}"
-        ydl_opts = {
             'writesubtitles': True,
             'writeautomaticsub': True,
             'skip_download': True,
-            'subtitleslangs': ['ko', 'en'],
             'quiet': True,
             'no_warnings': True,
-        }
         
         with YoutubeDL(ydl_opts) as ydl:
             try:
@@ -136,9 +147,6 @@ def get_transcript(video_id: str) -> str:
             return "ERROR: No subtitles found for this video."
 
         # Fetch the subtitle content
-        # selected_sub is a list of formats. usually we want 'json3' or 'srv1' or 'vtt'
-        # yt-dlp usually returns a list of dicts with 'url' and 'ext'
-        
         sub_url = None
         # Prefer 'srv1' (XML) or 'json3' or 'vtt'
         for fmt in selected_sub:
@@ -167,7 +175,6 @@ def get_transcript(video_id: str) -> str:
             except:
                 pass # Fallback to raw text if parsing fails
         
-        # If headers are JSON3 or just raw text, just return it (Gemini can handle it)
         return content
 
     except Exception as e:
@@ -253,25 +260,33 @@ def extract(url: str = Form(...)):
         transcript = ""
 
     # 2. Process with Gemini
-    if GEMINI_API_KEY and transcript:
+    if GEMINI_API_KEY:
+        if not transcript:
+             return JSONResponse(content={"error": f"이 영상에서 자막을 추출할 수 없습니다. (원인: {transcript_error or '알 수 없음'})"}, status_code=500)
+
         try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-flash-latest')
             prompt = f"""
-            You are a professional chef. Analyze the following cooking video transcript and extract the recipe structure.
-            IMPORTANT: All content (description, ingredients, steps, tips) MUST be in Korean (한국어).
-            The title of the recipe MUST be exactly: "{real_title}"
+            You are a professional chef assistant. Analyze the following cooking video transcript and convert it into a structured recipe.
             
-            Return ONLY a valid JSON object with the following schema:
-            {{
-                "title": "{real_title}",
-                "description": "Summarize the dish and its characteristics in Korean.",
-                "ingredients": ["List of ingredients with quantities in Korean"],
-                "steps": ["Step-by-step cooking instructions in Korean"],
-                "tips": ["Chef's tips or important notes in Korean"]
-            }}
+            IMPORTANT RULES:
+            1. All output MUST be in Korean (한국어).
+            2. Extract ingredients with precise quantities if mentioned.
+            3. Break down the cooking process into clear, numbered steps.
+            4. Include useful tips mentioned by the chef.
+            5. The title MUST be exactly: "{real_title}"
             
             Transcript:
-            {transcript[:15000]} 
+            {transcript[:20000]} 
+
+            Return ONLY a raw JSON object (no markdown formatting, no `json` code blocks) with this schema:
+            {{
+                "title": "{real_title}",
+                "description": "One sentence summary of the dish",
+                "ingredients": ["ingredient 1", "ingredient 2"],
+                "steps": ["step 1", "step 2"],
+                "tips": ["tip 1", "tip 2"]
+            }}
             """
             
             print(f"DEBUG: Sending prompt to Gemini (Length: {len(prompt)})")
@@ -302,29 +317,23 @@ def extract(url: str = Form(...)):
                 else:
                     raise e
 
-            recipe_data["title"] = real_title # Encforce real title
+            recipe_data["title"] = real_title # Ensure title matches
             recipe_data["video_id"] = video_id
             recipe_data["thumbnail"] = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+            
+            # Handle empty fields gracefully
+            if not recipe_data.get("ingredients"):
+                recipe_data["ingredients"] = ["재료 정보를 찾을 수 없습니다."]
+            if not recipe_data.get("steps"):
+                recipe_data["steps"] = ["조리 과정을 찾을 수 없습니다."]
+
             return recipe_data
             
         except Exception as e:
             print(f"DEBUG: Gemini API Error: {e}")
-            # Fallback to mock if API fails
-            mock = mock_recipe(video_id)
-            mock["title"] = real_title + " (API 오류로 인한 예시)"
-            mock["description"] = f"오류 발생: {str(e)}"
-            mock["video_id"] = video_id
-            mock["thumbnail"] = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
-            return mock
+            return JSONResponse(content={"error": f"AI 분석 중 오류가 발생했습니다: {str(e)}"}, status_code=500)
     else:
-        print(f"DEBUG: Fallback triggered. API_KEY={bool(GEMINI_API_KEY)}, Transcript={bool(transcript)}")
-        # No API Key or No Transcript -> Return Mock with a note
-        result = mock_recipe(video_id)
-        result["title"] = real_title if real_title != "YouTube Video" else result["title"]
-        result["video_id"] = video_id
-        result["thumbnail"] = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
-        if not GEMINI_API_KEY:
-            result['description'] = "[데모 모드] Gemini API 키가 올바르지 않거나 설정되지 않았습니다. .env 파일을 확인해주세요."
-        elif not transcript:
-             result['description'] = f"[오류] 자막을 가져올 수 없습니다. 원인: {transcript_error or '알 수 없음'}"
-        return result
+        # No API Key
+        # If running locally without key, user might want to see mock data, 
+        # but requested "real" extraction. Return error to prompt key setup.
+        return JSONResponse(content={"error": "Gemini API 키가 설정되지 않았습니다. .env 파일을 확인해주세요."}, status_code=500)
