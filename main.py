@@ -140,7 +140,7 @@ async def extract_recipe(url: str = Form(...)):
         if not client: break
 
         try:
-            target_model = 'gemini-1.5-flash'
+            target_model = 'gemini-1.5-flash-latest'
             # 자막 유무에 따른 맞춤형 가이드 제공
             analysis_guide = (
                 "제공된 자막을 분석하여 레시피를 추출해줘." if is_transcript_available
